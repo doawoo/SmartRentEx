@@ -1,3 +1,0 @@
-defmodule SmartRentEx do
-
-end
