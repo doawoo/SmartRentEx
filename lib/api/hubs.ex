@@ -22,6 +22,7 @@ defmodule SmartRentEx.API.Hubs do
     end
   end
 
+  @spec get_by_id(SmartRentEx.Types.Session.t(), any) :: {:error, any} | {:ok, Hub.t()}
   def get_by_id(%Session{socket_token: token}, hub_id) do
     case get("/#{hub_id}", headers: [{"authorization", "Bearer #{token}"}]) do
       {:ok, env} ->
