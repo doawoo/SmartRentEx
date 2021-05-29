@@ -1,7 +1,7 @@
 defmodule SmartRentEx.Agent do
   use GenServer
 
-  alias PhoenixClient.{Channel, Message}
+  alias PhoenixClient.Channel
 
   alias SmartRentEx.API
   alias SmartRentEx.Types.Device
@@ -9,7 +9,6 @@ defmodule SmartRentEx.Agent do
   alias SmartRentEx.Types.Session
 
   require Logger
-
 
   @moduledoc """
   This is a high-level gen-server which handles events from the SmartRent API socket server
@@ -19,30 +18,37 @@ defmodule SmartRentEx.Agent do
   @socket_base_url "wss://control.smartrent.com/socket/websocket?vsn=2.0.0"
 
   @impl GenServer
-  @spec init(SmartRentEx.Types.Session.t()) ::
-          {:ok, %{device_connections: %{}, session: SmartRentEx.Types.Session.t(), socket: pid}}
   def init(%Session{} = session) do
     Logger.info("SmartRentEx Agent Inint")
 
     socket = open_socket_connection(session)
-    {:ok, %{
-      session: session,
-      socket: socket,
-      device_connections: %{},
-    }}
+
+    {:ok,
+     %{
+       session: session,
+       socket: socket,
+       callbacks: [],
+       device_connections: %{}
+     }}
   end
 
+  #### Socket Sending Functions
+
   @impl GenServer
-  def handle_cast({:connect_to_device, %Device{} = device}, state) do
-    case Channel.join(state.socket, "devices:#{device.id}") do
-      {:ok, _response, channel} ->
-        Logger.info("Connecting to SmartRent device | id=#{device.id} name=#{device.name} type=#{device.type}")
-        {:noreply, %{state | device_connections: Map.put_new(state.device_connections, device.id, channel)}}
-      {:error, reason} ->
-        Logger.error("Failed to connect to SmartRent device | reason=#{inspect(reason)}")
-        {:noreply, state}
+  def handle_cast({:set_device_attribute, %Device{} = device, attr_map}, state) do
+    case Map.get(state.device_connections, device.id) do
+      nil ->
+        Logger.error("Cannot send attribute mesasge to device we're not connected to!")
+
+      channel ->
+        Logger.info(
+          "Sending attribute message to device | id=#{device.id} msg=#{inspect(attr_map)}"
+        )
+
+        Channel.push(channel, "update_attributes", %{"attributes" => attr_map})
     end
 
+    {:noreply, state}
   end
 
   #### Utility Functions
@@ -58,15 +64,39 @@ defmodule SmartRentEx.Agent do
   #### Socket Message Callbacks
 
   @impl GenServer
-  def handle_info(%Message{event: "attribute_state", payload: payload}, state) do
-    Logger.info("Attribute changed on SmartRent device | #{inspect(payload)}")
+  def handle_info(msg, state) do
+    Enum.each(state.callbacks, fn mod -> mod.smartrent_event(msg) end)
     {:noreply, state}
   end
 
+  #### Callback Registration Events
+
   @impl GenServer
-  def handle_info(msg, state) do
-    Logger.warning("Got an unknow message type: #{inspect(msg)}")
-    {:noreply, state}
+  def handle_call({:add_callback_module, mod}, _from, state) when is_atom(mod) do
+    Logger.info("Adding module #{mod} to SmartRent event callbacks...")
+    {:reply, :ok, %{callbacks: [mod | state.callbacks]}}
+  end
+
+  #### Device Connection Functions
+
+  def handle_call({:connect_to_device, %Device{} = device}, _from, state) do
+    case Channel.join(state.socket, "devices:#{device.id}") do
+      {:ok, _response, channel} ->
+        Logger.info(
+          "Connected to SmartRent device | id=#{device.id} name=#{device.name} type=#{device.type}",
+          ansi_color: :green
+        )
+
+        {:reply, :ok,
+         %{state | device_connections: Map.put_new(state.device_connections, device.id, channel)}}
+
+      {:error, reason} ->
+        Logger.error(
+          "Failed to connect to SmartRent device | id=#{device.id} reason=#{inspect(reason)}"
+        )
+
+        {:reply, {:error, reason}, state}
+    end
   end
 
   #### RESTful API Functions

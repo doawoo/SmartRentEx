@@ -23,6 +23,7 @@ defmodule SmartRentEx.MixProject do
     [
       {:typed_struct, "~> 0.2.1"},
       {:phoenix_client, "~> 0.3"},
+      {:retry, "~> 0.14"},
       {:tesla, "~> 1.4"},
       {:jason, "~> 1.0"}
     ]
