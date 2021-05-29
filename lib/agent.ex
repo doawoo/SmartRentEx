@@ -69,7 +69,7 @@ defmodule SmartRentEx.Agent do
     {:noreply, state}
   end
 
-  #### API Functions
+  #### RESTful API Functions
 
   @impl GenServer
   def handle_call(:get_hubs, _from, state) do
@@ -81,5 +81,15 @@ defmodule SmartRentEx.Agent do
   def handle_call({:get_devices, %Hub{} = hub}, _from, state) do
     {:ok, hubs} = API.Devices.list(state.session, hub.id)
     {:reply, hubs, state}
+  end
+
+  def handle_call({:get_device, %Hub{} = hub, device_id}, _from, state) do
+    {:ok, device} = API.Devices.get_by_id(state.session, hub, device_id)
+    {:reply, device, state}
+  end
+
+  def handle_call({:get_hub, hub_id}, _from, state) do
+    {:ok, hub} = API.Hubs.get_by_id(state.session, hub_id)
+    {:reply, hub, state}
   end
 end
