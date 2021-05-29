@@ -65,7 +65,7 @@ defmodule SmartRentEx.Agent do
 
   @impl GenServer
   def handle_info(msg, state) do
-    Enum.each(state.callbacks, fn mod -> mod.smartrent_event(msg) end)
+    Enum.each(state.callbacks, fn mod -> mod.smartrent_event(msg, self()) end)
     {:noreply, state}
   end
 
