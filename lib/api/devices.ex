@@ -18,7 +18,9 @@ defmodule SmartRentEx.API.Devices do
         else
           {:error, :nil_data}
         end
-      err -> err
+
+      err ->
+        err
     end
   end
 
@@ -32,14 +34,16 @@ defmodule SmartRentEx.API.Devices do
         else
           {:error, :nil_data}
         end
-      err -> err
+
+      err ->
+        err
     end
   end
 
   defp parse_device(device_data, acc \\ []) do
     device = %Device{
       id: device_data["id"],
-      attributes: Enum.map(device_data["attributes"], fn {k,v} -> {k,v} end),
+      attributes: Enum.map(device_data["attributes"], fn {k, v} -> {k, v} end),
       battery_level: device_data["battery_level"],
       battery_powered: device_data["battery_powered"],
       icon: device_data["icon"],
@@ -53,6 +57,7 @@ defmodule SmartRentEx.API.Devices do
       valid_config: device_data["valid_config"],
       warning: device_data["warning"]
     }
+
     [device | acc]
   end
 end

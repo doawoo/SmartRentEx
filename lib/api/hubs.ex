@@ -18,7 +18,9 @@ defmodule SmartRentEx.API.Hubs do
         else
           {:error, :nil_data}
         end
-      err -> err
+
+      err ->
+        err
     end
   end
 
@@ -32,7 +34,9 @@ defmodule SmartRentEx.API.Hubs do
         else
           {:error, :nil_data}
         end
-      err -> err
+
+      err ->
+        err
     end
   end
 
@@ -45,8 +49,9 @@ defmodule SmartRentEx.API.Hubs do
       timezone: hub_data["timezone"],
       connected_to_community_wifi: hub_data["connected_to_community_wifi"],
       wifi_supported: hub_data["wifi_supported"],
-      wifi_v2_supported: hub_data["wifi_v2_supported"],
+      wifi_v2_supported: hub_data["wifi_v2_supported"]
     }
+
     [hub | acc]
   end
 end
