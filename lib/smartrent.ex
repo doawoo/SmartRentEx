@@ -13,14 +13,18 @@ defmodule SmartRentEx do
     GenServer.start_link(Agent, session)
   end
 
-  @spec create_hoh_agent(binary, binary, list(atom())) :: pid
-  def create_hoh_agent(email, password, callback_mods \\ []) when is_binary(email) and is_binary(password) do
+  @spec create_hoh_agent(binary, binary, list(atom() | function())) :: pid
+  def create_hoh_agent(email, password, callback_mods \\ [])
+      when is_binary(email) and is_binary(password) do
     {:ok, agent} = create_agent(email, password)
     primary_hub = get_hubs(agent) |> List.first()
-    :ok = connect_to_all_devices(agent, primary_hub)
+
     Enum.each(callback_mods, fn mod ->
       :ok = GenServer.call(agent, {:add_callback_module, mod})
     end)
+
+    :ok = connect_to_all_devices(agent, primary_hub)
+
     agent
   end
 
@@ -43,6 +47,7 @@ defmodule SmartRentEx do
   @spec connect_to_all_devices(pid, Hub.t()) :: :ok
   def connect_to_all_devices(agent, %Hub{} = hub) when is_pid(agent) do
     device_list = get_devices(agent, hub)
+
     Enum.each(device_list, fn %Device{} = device ->
       connect_to_device(agent, device)
     end)

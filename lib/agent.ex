@@ -45,9 +45,7 @@ defmodule SmartRentEx.Agent do
 
       channel ->
         Logger.info(
-          "Sending attribute message to device | id=#{device.id} attribute_name=#{name} attribute value=#{
-            value
-          }"
+          "Sending attribute message to device | id=#{device.id} attribute_name=#{name} attribute value=#{value}"
         )
 
         Channel.push(
@@ -82,7 +80,7 @@ defmodule SmartRentEx.Agent do
   @impl GenServer
   # Takes incoming messages from the SmartRent sockets and forwards them to callback modules
   def handle_info(msg, state) do
-    Enum.each(state.callbacks, fn mod -> mod.smartrent_event(msg, self()) end)
+    send_callback(msg, state.callbacks)
     {:noreply, state}
   end
 
@@ -91,8 +89,9 @@ defmodule SmartRentEx.Agent do
   @impl GenServer
   # Add a module to the event callback list, when an event is notices from SmartRent it will be
   # forwarded to ModuleName.smartrent_event/2 with the message and pid of the agent as the arguments
-  def handle_call({:add_callback_module, mod}, _from, state) when is_atom(mod) do
-    Logger.info("Adding module #{mod} to SmartRent event callbacks...")
+  def handle_call({:add_callback_module, mod}, _from, state)
+      when is_atom(mod) or is_function(mod) do
+    Logger.info("Adding module #{inspect(mod)} to SmartRent event callbacks...")
     {:reply, :ok, %{state | callbacks: [mod | state.callbacks]}}
   end
 
@@ -106,6 +105,8 @@ defmodule SmartRentEx.Agent do
           "Connected to SmartRent device | id=#{device.id} name=#{device.name} type=#{device.type}",
           ansi_color: :green
         )
+
+        send_callback(%{event: "device_connected", device: device}, state.callbacks)
 
         {:reply, :ok,
          %{state | device_connections: Map.put_new(state.device_connections, device.id, channel)}}
@@ -185,11 +186,18 @@ defmodule SmartRentEx.Agent do
   #### CATCH ALL BECAUSE LOL ####
   def handle_call(unknown_message, from, state) do
     Logger.error(
-      "Got a message we don't know how to handle from #{inspect(from)} | message=#{
-        inspect(unknown_message)
-      }"
+      "Got a message we don't know how to handle from #{inspect(from)} | message=#{inspect(unknown_message)}"
     )
 
     {:reply, :error, state}
+  end
+
+  defp send_callback(message, callbacks) do
+    Enum.each(callbacks, fn cb ->
+      cond do
+        is_atom(cb) -> cb.smartrent_event(message, self())
+        is_function(cb) -> cb.(message, self())
+      end
+    end)
   end
 end
